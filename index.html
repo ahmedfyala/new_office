@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مكاتب إدارية للإيجار</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green:#1a7a4a; --green-bg:#e8f5ee; --green-border:#a8d5b8;
+  --amber:#b45309; --amber-bg:#fef3c7; --amber-border:#fcd34d;
+  --red:#dc2626; --red-bg:#fef2f2; --red-border:#fca5a5;
+  --text:#1c1917; --muted:#57534e; --border:#e7e5e4; --surface:#fafaf9;
+  --font:'Cairo','Segoe UI',Tahoma,sans-serif;
+}
+body { font-family:var(--font); font-size:14px; color:var(--text); background:#fff; direction:rtl; line-height:1.7; }
+
+@media print {
+  .no-print,
+  .edit-toolbar,
+  .add-tag-btn,
+  .remove-tag-btn,
+  .remove-btn,
+  .print-btn { display:none !important; }
+
+  body.edit-mode [contenteditable],
+  [contenteditable] {
+    outline:none !important;
+    border:none !important;
+    background:transparent !important;
+    padding:0 !important;
+    cursor:default !important;
+  }
+  .img-placeholder { display:none !important; }
+  .img-zone img { display:block !important; }
+  .office-card { page-break-inside:avoid; }
+  body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+
+.page { max-width:920px; margin:0 auto; padding:36px 28px; }
+
+/* HEADER */
+.doc-header { border-bottom:3px solid var(--text); padding-bottom:18px; margin-bottom:24px; }
+.doc-header h1 { font-size:24px; font-weight:800; margin-bottom:6px; }
+.meta { font-size:12px; color:var(--muted); display:flex; gap:18px; flex-wrap:wrap; }
+
+/* EDIT TOOLBAR */
+.edit-toolbar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  background:#f0fdf4; border:1px solid var(--green-border); border-radius:8px;
+  padding:10px 14px; margin-bottom:20px; font-size:13px;
+}
+.edit-toolbar .label { font-weight:700; color:var(--green); }
+.toolbar-btn { padding:5px 14px; border-radius:6px; border:1px solid var(--border); background:#fff; font-family:var(--font); font-size:12px; font-weight:700; cursor:pointer; color:var(--text); transition:background .15s; }
+.toolbar-btn:hover { background:var(--surface); }
+.toolbar-btn.active { background:var(--green); color:#fff; border-color:var(--green); }
+.edit-hint { font-size:12px; color:var(--muted); }
+
+/* LEGEND */
+.legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; padding:10px 14px; background:var(--surface); border:1px solid var(--border); border-radius:8px; align-items:center; }
+.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; white-space:nowrap; }
+.badge-furnished { background:var(--green-bg); color:var(--green); border:1px solid var(--green-border); }
+.badge-ac { background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber-border); }
+
+/* SUMMARY TABLE */
+.section-title { font-size:15px; font-weight:800; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+table { width:100%; border-collapse:collapse; margin-bottom:28px; font-size:13px; }
+thead th { background:#1c1917; color:#fff; padding:9px 12px; text-align:right; font-weight:700; }
+tbody tr:nth-child(even) { background:var(--surface); }
+tbody tr:hover { background:#f0fdf4; }
+td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.p-green { font-weight:800; color:var(--green); }
+.p-amber { font-weight:800; color:var(--amber); }
+
+/* CARDS */
+.cards-grid { display:grid; gap:22px; margin-bottom:28px; }
+.office-card { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.card-header { padding:11px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.card-header-furnished { background:var(--green-bg); border-bottom:2px solid var(--green-border); }
+.card-header-ac { background:var(--amber-bg); border-bottom:2px solid var(--amber-border); }
+.card-title { font-size:15px; font-weight:800; }
+.card-subtitle { font-size:11px; color:var(--muted); margin-top:1px; }
+.card-body { padding:14px 16px; }
+
+/* IMG ZONE */
+.img-zone { position:relative; width:100%; height:180px; margin-bottom:14px; border-radius:8px; overflow:hidden; cursor:pointer; }
+.img-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; z-index:3; width:100%; height:100%; }
+.img-placeholder { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:#f5f5f4; border:2px dashed #d6d3d1; border-radius:8px; color:#a8a29e; font-size:13px; font-family:var(--font); transition:background .2s,border-color .2s; z-index:1; }
+.img-placeholder.drag-over { background:var(--green-bg); border-color:var(--green); color:var(--green); }
+.img-placeholder svg { opacity:.4; }
+.hint { font-size:11px; color:#c4c0bb; }
+.drag-over-text { display:none; font-weight:700; }
+.img-placeholder.drag-over .normal-text { display:none; }
+.img-placeholder.drag-over .drag-over-text { display:block; }
+.preview-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:8px; z-index:2; display:none; }
+.remove-btn { position:absolute; top:7px; left:7px; background:rgba(0,0,0,.55); color:#fff; border:none; border-radius:20px; padding:3px 10px; font-size:12px; font-family:var(--font); font-weight:700; cursor:pointer; z-index:4; display:none; }
+.remove-btn:hover { background:rgba(220,38,38,.85); }
+.img-zone.has-image .img-placeholder { display:none; }
+.img-zone.has-image .preview-img { display:block; }
+.img-zone.has-image .remove-btn { display:block; }
+
+/* DETAILS */
+.details-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-bottom:12px; }
+@media(max-width:520px){ .details-grid{grid-template-columns:1fr;} }
+.detail-row { display:flex; align-items:flex-start; gap:8px; padding:5px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.detail-row:last-child { border-bottom:none; }
+.detail-label { color:var(--muted); font-weight:600; min-width:68px; flex-shrink:0; font-size:12px; }
+.detail-value { font-weight:700; color:var(--text); }
+.detail-value.price { font-size:15px; color:var(--green); }
+.detail-value.yes { color:var(--green); }
+.detail-value.no { color:var(--red); }
+
+/* EDIT MODE */
+body.edit-mode [contenteditable] { outline:2px dashed #93c5fd; border-radius:4px; background:#f0f9ff; padding:1px 4px; cursor:text; }
+body.edit-mode [contenteditable]:focus { outline:2px solid #3b82f6; background:#eff6ff; }
+
+/* PROS / CONS */
+.two-col-section { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+@media(max-width:520px){ .two-col-section{grid-template-columns:1fr;} }
+.tags-section-title { font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; margin-bottom:7px; }
+.tags-wrap { display:flex; flex-wrap:wrap; gap:5px; min-height:28px; }
+.feature-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; background:#f5f5f4; border:1px solid var(--border); font-size:12px; font-weight:600; color:var(--muted); }
+.con-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; background:var(--red-bg); border:1px solid var(--red-border); font-size:12px; font-weight:600; color:var(--red); }
+.remove-tag-btn { background:none; border:none; cursor:pointer; font-size:13px; line-height:1; padding:0 0 0 2px; color:inherit; opacity:.55; display:none; }
+.remove-tag-btn:hover { opacity:1; }
+body.edit-mode .remove-tag-btn { display:inline; }
+.add-tag-btn { display:none; padding:3px 10px; border-radius:20px; border:1px dashed #94a3b8; background:transparent; font-family:var(--font); font-size:12px; font-weight:700; color:#94a3b8; cursor:pointer; }
+.add-tag-btn:hover { border-color:#3b82f6; color:#3b82f6; }
+body.edit-mode .add-tag-btn { display:inline-flex; }
+
+/* SEPARATOR */
+.section-sep { display:flex; align-items:center; gap:12px; margin:26px 0 16px; }
+.sep-label { font-size:13px; font-weight:800; white-space:nowrap; padding:5px 14px; border-radius:20px; }
+.sep-green { background:var(--green-bg); color:var(--green); }
+.sep-amber { background:var(--amber-bg); color:var(--amber); }
+.section-sep hr { flex:1; border:none; border-top:2px solid var(--border); }
+
+/* FOOTER */
+.doc-footer { margin-top:32px; padding-top:12px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+
+/* PRINT BTN */
+.print-btn { position:fixed; bottom:22px; left:22px; background:#1c1917; color:#fff; border:none; padding:11px 20px; border-radius:8px; font-family:var(--font); font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.25); z-index:999; transition:background .15s,transform .1s; }
+.print-btn:hover { background:#292524; transform:translateY(-1px); }
+
+/* LINK INFO — hidden from print */
+.link-info {
+  margin-top:10px; padding:8px 12px; border-radius:6px;
+  background:#f8faff; border:1px dashed #93c5fd;
+  font-size:12px; display:flex; flex-direction:column; gap:4px;
+}
+.link-info a { color:#3b82f6; font-weight:700; text-decoration:none; word-break:break-all; }
+.link-info a:hover { text-decoration:underline; }
+.link-info .li-label { font-weight:700; color:#1d4ed8; font-size:11px; letter-spacing:.04em; margin-bottom:2px; }
+.link-info .li-row { display:flex; gap:6px; align-items:flex-start; font-size:12px; color:var(--muted); }
+.link-info .li-key { font-weight:700; color:var(--text); min-width:70px; flex-shrink:0; }
+@media print { .link-info { display:none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="doc-header">
+    <h1 contenteditable="false">مكاتب إدارية للإيجار — مقارنة الخيارات</h1>
+    <div class="meta">
+      <span>📅 أبريل ٢٠٢٦</span>
+      <span>📍 القاهرة — زهراء المعادي، وان قطامية، دائري المعادي</span>
+      <span>🏢 ١٠ مكاتب متاحة</span>
+    </div>
+  </div>
+
+  <div class="edit-toolbar no-print">
+    <span class="label">✏️ وضع التعديل:</span>
+    <button class="toolbar-btn" id="toggleEdit" onclick="toggleEditMode()">تفعيل التعديل</button>
+    <span class="edit-hint">فعّل لتعديل أي نص أو إضافة / حذف مميزات وعيوب</span>
+  </div>
+
+  <div class="legend">
+    <span style="font-weight:800;font-size:13px">دليل الألوان:</span>
+    <div style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600"><span class="badge badge-furnished">✅ مفروش بالكامل</span><span>أثاث + مكيفات</span></div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600"><span class="badge badge-ac">⚠️ مكيفات فقط</span><span>بدون أثاث</span></div>
+  </div>
+
+  <div class="section-title">جدول المقارنة السريعة</div>
+  <table>
+    <thead><tr><th>الكود</th><th>المساحة</th><th>الموقع</th><th>الإيجار / شهر</th><th>الأثاث</th><th>التكييف</th></tr></thead>
+    <tbody>
+      <tr><td><b>RC2865</b></td><td>٦٠ م²</td><td>إيليت تاور — زهراء المعادي</td><td class="p-green">٣٤,٠٠٠ ج</td><td style="color:var(--green)">✓ مفروش كامل</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>RC3006</b></td><td>١٢٠ م²</td><td>وان قطامية — دائري المعادي</td><td class="p-green">٥٥,٠٠٠ ج</td><td style="color:var(--green)">✓ مفروش كامل</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>rc2168</b></td><td>١٥٠ م²</td><td>ريحانة بلازا — زهراء المعادي</td><td class="p-green">٥٥,٠٠٠ ج</td><td style="color:var(--green)">✓ مفروش VIP</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>RC3036</b></td><td>١٢٠ م²</td><td>جراند بلازا — دائري المعادي</td><td class="p-green">٦٠,٠٠٠ ج</td><td style="color:var(--green)">✓ مفروش كامل</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>غير محدد</b></td><td>٧٠ م²</td><td>غير محدد</td><td class="p-amber">٢٢,٠٠٠ ج</td><td style="color:var(--red)">✗ بدون أثاث</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>RC2776</b></td><td>٦٢ م²</td><td>إيليت تاور — زهراء المعادي</td><td class="p-amber">٢٥,٠٠٠ ج</td><td style="color:var(--red)">✗ بدون أثاث</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>RC1807</b></td><td>١٠٠ م²</td><td>شارع الزهراء الرئيسي</td><td class="p-amber">٤٠,٠٠٠ ج</td><td style="color:var(--red)">✗ بدون أثاث</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>ريحانة ١٠٠م</b></td><td>١٠٠ م²</td><td>ريحانة بلازا — زهراء المعادي</td><td class="p-amber">٤٥,٠٠٠ ج</td><td style="color:var(--red)">✗ بدون أثاث</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>RC2923</b></td><td>١٥٠ م²</td><td>اللاسلكي — المعادي الجديدة</td><td class="p-green">٧٥,٠٠٠ ج</td><td style="color:var(--green)">✓ مفروش كامل</td><td style="color:var(--green)">✓</td></tr>
+      <tr><td><b>EG-6926955</b></td><td>١٠٦ م²</td><td>وان قطامية — دائري المعادي</td><td class="p-amber">٦٠,٠٠٠ ج</td><td style="color:var(--red)">✗ بدون أثاث</td><td style="color:var(--green)">✓ مركزي</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ═══ FURNISHED ═══ -->
+  <div class="section-sep"><span class="sep-label sep-green">✅ المكاتب المفروشة بالكامل — ٤ خيارات</span><hr></div>
+  <div class="cards-grid">
+    <div class="office-card">
+      <div class="card-header card-header-furnished">
+        <div><div class="card-title" contenteditable="false">إيليت تاور — زهراء المعادي</div><div class="card-subtitle" contenteditable="false">كود: RC2865</div></div>
+        <span class="badge badge-furnished">✅ مفروش بالكامل</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-RC2865">
+          <input type="file" accept="image/*" onchange="loadFile(event,'RC2865')">
+          <div class="img-placeholder" id="ph-RC2865">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-RC2865">
+          <button class="remove-btn" onclick="removeImg('RC2865')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">٦٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value price" contenteditable="false">٣٤,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">٢ غرفة + ريسبشن + ١ حمام</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value yes" contenteditable="false">✓ مفروش بالكامل</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">التواصل</span><span class="detail-value " contenteditable="false">01111588662</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-RC2865"><span class="feature-tag"><span contenteditable="false">محور مواصلات</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">موقع استراتيجي</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">تسليم فوري</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">مكيف بالكامل</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-RC2865','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-RC2865"></div>
+            <button class="add-tag-btn" onclick="addTag('cons-RC2865','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="office-card">
+      <div class="card-header card-header-furnished">
+        <div><div class="card-title" contenteditable="false">وان قطامية — دائري المعادي</div><div class="card-subtitle" contenteditable="false">كود: RC3006</div></div>
+        <span class="badge badge-furnished">✅ مفروش بالكامل</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-RC3006">
+          <input type="file" accept="image/*" onchange="loadFile(event,'RC3006')">
+          <div class="img-placeholder" id="ph-RC3006">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-RC3006">
+          <button class="remove-btn" onclick="removeImg('RC3006')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">١٢٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value price" contenteditable="false">٥٥,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">Open Area + ٢ غرفة + ٢ حمام + أوفيس</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value yes" contenteditable="false">✓ فرش مكتبي كامل</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">التشطيب</span><span class="detail-value " contenteditable="false">ألترا مودرن</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-RC3006"><span class="feature-tag"><span contenteditable="false">إنترنت</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">مداخل فاخرة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">رؤية مباشرة للدائري</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">Open Space</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-RC3006','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-RC3006"></div>
+            <button class="add-tag-btn" onclick="addTag('cons-RC3006','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="office-card">
+      <div class="card-header card-header-furnished">
+        <div><div class="card-title" contenteditable="false">ريحانة بلازا — زهراء المعادي</div><div class="card-subtitle" contenteditable="false">كود: rc2168</div></div>
+        <span class="badge badge-furnished">✅ مفروش VIP</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-rc2168">
+          <input type="file" accept="image/*" onchange="loadFile(event,'rc2168')">
+          <div class="img-placeholder" id="ph-rc2168">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-rc2168">
+          <button class="remove-btn" onclick="removeImg('rc2168')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">١٥٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value price" contenteditable="false">٥٥,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">Open Area + ٣ غرف + ٢ حمام + أوفيس</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value yes" contenteditable="false">✓ مفروش VIP كامل</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">الموقع</span><span class="detail-value " contenteditable="false">١٥ دقيقة من التجمع الخامس</span></div><div class="detail-row"><span class="detail-label">التواصل</span><span class="detail-value " contenteditable="false">01270527338</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-rc2168"><span class="feature-tag"><span contenteditable="false">أمن ٢٤ ساعة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">كاميرات مراقبة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">أسانسير</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">مدخل فندقي</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">رخصة إدارية</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">أكبر مساحة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-rc2168','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-rc2168"></div>
+            <button class="add-tag-btn" onclick="addTag('cons-rc2168','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="office-card">
+      <div class="card-header card-header-furnished">
+        <div><div class="card-title" contenteditable="false">جراند بلازا — دائري المعادي</div><div class="card-subtitle" contenteditable="false">كود: RC3036</div></div>
+        <span class="badge badge-furnished">✅ مفروش بالكامل</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-RC3036">
+          <input type="file" accept="image/*" onchange="loadFile(event,'RC3036')">
+          <div class="img-placeholder" id="ph-RC3036">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-RC3036">
+          <button class="remove-btn" onclick="removeImg('RC3036')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">١٢٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value price" contenteditable="false">٦٠,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">Open Space + ٢ غرفة + ١ حمام + أوفيس</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value yes" contenteditable="false">✓ مفروش بالكامل</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">التواصل</span><span class="detail-value " contenteditable="false">01270527338</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-RC3036"><span class="feature-tag"><span contenteditable="false">رخصة إدارية</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">إنترنت</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">تشطيب أعلى مستوى</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">تسليم فوري</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-RC3036','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-RC3036"></div>
+            <button class="add-tag-btn" onclick="addTag('cons-RC3036','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- RC2923 — اللاسلكي -->
+    <div class="office-card">
+      <div class="card-header card-header-furnished">
+        <div><div class="card-title" contenteditable="false">شارع اللاسلكي — المعادي الجديدة</div><div class="card-subtitle" contenteditable="false">كود: RC2923 | رقم الإعلان: EG-6931575</div></div>
+        <span class="badge badge-furnished">✅ مفروش بالكامل</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-RC2923">
+          <input type="file" accept="image/*" onchange="loadFile(event,'RC2923')">
+          <div class="img-placeholder" id="ph-RC2923">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-RC2923">
+          <button class="remove-btn" onclick="removeImg('RC2923')">✕ حذف</button>
+        </div>
+        <div class="details-grid">
+          <div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value" contenteditable="false">١٥٠ م²</span></div>
+          <div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value price" contenteditable="false">٧٥,٠٠٠ ج / شهر</span></div>
+          <div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value" contenteditable="false">Open Space + ٢ غرفة + ٢ حمام + أوفيس</span></div>
+          <div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value yes" contenteditable="false">✓ مفروش بالكامل</span></div>
+          <div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيف</span></div>
+          <div class="detail-row"><span class="detail-label">التشطيب</span><span class="detail-value" contenteditable="false">الترا مودرن — اكسترا سوبر لوكس</span></div>
+          <div class="detail-row"><span class="detail-label">الدور</span><span class="detail-value" contenteditable="false">٣</span></div>
+          <div class="detail-row"><span class="detail-label">سنة البناء</span><span class="detail-value" contenteditable="false">٢٠٢٠</span></div>
+        </div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-RC2923">
+              <span class="feature-tag"><span contenteditable="false">مبنى إداري بالكامل</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">أمن ٢٤ ساعة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">كاميرات مراقبة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">أسانسير</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">مدخل فندقي</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">إنترنت فايبر</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">واجهات معمارية</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+            </div>
+            <button class="add-tag-btn" onclick="addTag('pros-RC2923','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-RC2923"></div>
+            <button class="add-tag-btn" onclick="addTag('cons-RC2923','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+        <!-- LINK INFO — للاستخدام الداخلي فقط، لا تظهر عند الطباعة -->
+        <div class="link-info no-print">
+          <div class="li-label">🔗 معلومات الإعلان (داخلية — لا تظهر عند الطباعة)</div>
+          <div class="li-row"><span class="li-key">رابط الإعلان:</span><a href="https://aqarmap.com.eg/ar/listing/6931575-for-rent-cairo-el-maadi-el-maadi-el-gededa-el-lasilki/" target="_blank">aqarmap.com.eg — EG-6931575</a></div>
+          <div class="li-row"><span class="li-key">تاريخ النشر:</span><span>٢٦ أبريل ٢٠٢٦</span></div>
+          <div class="li-row"><span class="li-key">نوع المعلن:</span><span>مسوق عقاري — كود: دينا</span></div>
+          <div class="li-row"><span class="li-key">ملاحظة:</span><span>يصلح لجميع الأغراض الإدارية — متوفر وحدات أخرى بنفس المكتب العقاري (٥٠م – ١٠٠٠٠م)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ AC ONLY ═══ -->
+  <div class="section-sep"><span class="sep-label sep-amber">⚠️ مكيفات فقط — بدون أثاث — ٤ خيارات</span><hr></div>
+  <div class="cards-grid">
+    <div class="office-card">
+      <div class="card-header card-header-ac">
+        <div><div class="card-title" contenteditable="false">إيليت تاور — زهراء المعادي</div><div class="card-subtitle" contenteditable="false">كود: RC2776</div></div>
+        <span class="badge badge-ac">⚠️ مكيفات فقط</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-RC2776">
+          <input type="file" accept="image/*" onchange="loadFile(event,'RC2776')">
+          <div class="img-placeholder" id="ph-RC2776">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-RC2776">
+          <button class="remove-btn" onclick="removeImg('RC2776')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">٦٢ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value " contenteditable="false">٢٥,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">٢ غرفة + ريسبشن + ١ حمام + أوفيس</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value no" contenteditable="false">✗ غير مفروش</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">التواصل</span><span class="detail-value " contenteditable="false">01157550494</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-RC2776"><span class="feature-tag"><span contenteditable="false">أمن ٢٤ ساعة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">واجهة بانوراما</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">محور مواصلات</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-RC2776','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-RC2776"><span class="con-tag"><span contenteditable="false">غير مفروش</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('cons-RC2776','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="office-card">
+      <div class="card-header card-header-ac">
+        <div><div class="card-title" contenteditable="false">شارع الزهراء الرئيسي — زهراء المعادي</div><div class="card-subtitle" contenteditable="false">كود: RC1807</div></div>
+        <span class="badge badge-ac">⚠️ مكيفات فقط</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-RC1807">
+          <input type="file" accept="image/*" onchange="loadFile(event,'RC1807')">
+          <div class="img-placeholder" id="ph-RC1807">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-RC1807">
+          <button class="remove-btn" onclick="removeImg('RC1807')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">١٠٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value " contenteditable="false">٤٠,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">٢ غرفة + ٢ حمام + ريسبشن</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value no" contenteditable="false">✗ غير مفروش</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">التواصل</span><span class="detail-value " contenteditable="false">01119355536</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-RC1807"><span class="feature-tag"><span contenteditable="false">أمن</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">مداخل فندقية</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">محور مواصلات</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-RC1807','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-RC1807"><span class="con-tag"><span contenteditable="false">غير مفروش</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('cons-RC1807','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="office-card">
+      <div class="card-header card-header-ac">
+        <div><div class="card-title" contenteditable="false">ريحانة بلازا — زهراء المعادي (١٠٠م²)</div><div class="card-subtitle" contenteditable="false">كود: غير محدد</div></div>
+        <span class="badge badge-ac">⚠️ مكيفات فقط</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-rih100">
+          <input type="file" accept="image/*" onchange="loadFile(event,'rih100')">
+          <div class="img-placeholder" id="ph-rih100">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-rih100">
+          <button class="remove-btn" onclick="removeImg('rih100')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">١٠٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value " contenteditable="false">٤٥,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value no" contenteditable="false">✗ غير مفروش</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيف بالكامل</span></div><div class="detail-row"><span class="detail-label">الموقع</span><span class="detail-value " contenteditable="false">ريحانة بلازا المرشدي — زهراء المعادي</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-rih100"><span class="feature-tag"><span contenteditable="false">واجهة بانوراما</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">جاهز فوراً</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="feature-tag"><span contenteditable="false">موقع حيوي</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-rih100','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-rih100"><span class="con-tag"><span contenteditable="false">غير مفروش</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('cons-rih100','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="office-card">
+      <div class="card-header card-header-ac">
+        <div><div class="card-title" contenteditable="false">مكتب ٧٠ م²</div><div class="card-subtitle" contenteditable="false">كود: غير محدد</div></div>
+        <span class="badge badge-ac">⚠️ مكيفات فقط</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-unknown">
+          <input type="file" accept="image/*" onchange="loadFile(event,'unknown')">
+          <div class="img-placeholder" id="ph-unknown">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-unknown">
+          <button class="remove-btn" onclick="removeImg('unknown')">✕ حذف</button>
+        </div>
+        <div class="details-grid"><div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value " contenteditable="false">٧٠ م²</span></div><div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value " contenteditable="false">٢٢,٠٠٠ ج / شهر</span></div><div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value " contenteditable="false">٢ غرفة + ٢ حمام + ريسبشن</span></div><div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value no" contenteditable="false">✗ غير مفروش</span></div><div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيفات مدمجة</span></div><div class="detail-row"><span class="detail-label">شروط الدفع</span><span class="detail-value " contenteditable="false">شهر مقدم + شهرين تأمين + شهر عمولة</span></div></div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-unknown"><span class="feature-tag"><span contenteditable="false">أرخص إيجار في القائمة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('pros-unknown','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-unknown"><span class="con-tag"><span contenteditable="false">غير مفروش</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span><span class="con-tag"><span contenteditable="false">لا يوجد كود أو تواصل واضح</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span></div>
+            <button class="add-tag-btn" onclick="addTag('cons-unknown','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- EG-6926955 — وان قطامية ١٠٦م مكيف مركزي -->
+    <div class="office-card">
+      <div class="card-header card-header-ac">
+        <div><div class="card-title" contenteditable="false">وان قطامية المرشدي — دائري المعادي</div><div class="card-subtitle" contenteditable="false">كود: دينا | رقم الإعلان: EG-6926955</div></div>
+        <span class="badge badge-ac">⚠️ مكيفات فقط</span>
+      </div>
+      <div class="card-body">
+        <div class="img-zone" id="zone-EG6926955">
+          <input type="file" accept="image/*" onchange="loadFile(event,'EG6926955')">
+          <div class="img-placeholder" id="ph-EG6926955">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="normal-text">اسحب صورة المكتب أو اضغط للاختيار</span>
+            <span class="drag-over-text">أفلت هنا ✓</span>
+            <span class="hint">PNG · JPG · WEBP</span>
+          </div>
+          <img class="preview-img" id="img-EG6926955">
+          <button class="remove-btn" onclick="removeImg('EG6926955')">✕ حذف</button>
+        </div>
+        <div class="details-grid">
+          <div class="detail-row"><span class="detail-label">المساحة</span><span class="detail-value" contenteditable="false">١٠٦ م²</span></div>
+          <div class="detail-row"><span class="detail-label">الإيجار</span><span class="detail-value" contenteditable="false">٦٠,٠٠٠ ج / شهر</span></div>
+          <div class="detail-row"><span class="detail-label">التقسيم</span><span class="detail-value" contenteditable="false">مكتب إداري — ٣ غرف — ١ حمام</span></div>
+          <div class="detail-row"><span class="detail-label">الأثاث</span><span class="detail-value no" contenteditable="false">✗ غير مفروش</span></div>
+          <div class="detail-row"><span class="detail-label">التكييف</span><span class="detail-value yes" contenteditable="false">✓ مكيف مركزي بالكامل</span></div>
+          <div class="detail-row"><span class="detail-label">التشطيب</span><span class="detail-value" contenteditable="false">اكسترا سوبر لوكس</span></div>
+          <div class="detail-row"><span class="detail-label">الدور</span><span class="detail-value" contenteditable="false">٣</span></div>
+          <div class="detail-row"><span class="detail-label">سنة البناء</span><span class="detail-value" contenteditable="false">٢٠٢٠</span></div>
+        </div>
+        <div class="two-col-section">
+          <div>
+            <div class="tags-section-title">✅ المميزات</div>
+            <div class="tags-wrap" id="pros-EG6926955">
+              <span class="feature-tag"><span contenteditable="false">على دائري المعادي مباشرة</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">برايم لوكيشن</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">مكيف مركزي</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">أمن</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">مصعد</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">جراج مغطى</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+              <span class="feature-tag"><span contenteditable="false">٥ دقائق التجمع الخامس</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+            </div>
+            <button class="add-tag-btn" onclick="addTag('pros-EG6926955','feature')">+ إضافة ميزة</button>
+          </div>
+          <div>
+            <div class="tags-section-title">❌ العيوب</div>
+            <div class="tags-wrap" id="cons-EG6926955">
+              <span class="con-tag"><span contenteditable="false">غير مفروش</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button></span>
+            </div>
+            <button class="add-tag-btn" onclick="addTag('cons-EG6926955','con')">+ إضافة عيب</button>
+          </div>
+        </div>
+        <!-- LINK INFO — للاستخدام الداخلي فقط، لا تظهر عند الطباعة -->
+        <div class="link-info no-print">
+          <div class="li-label">🔗 معلومات الإعلان (داخلية — لا تظهر عند الطباعة)</div>
+          <div class="li-row"><span class="li-key">رابط الإعلان:</span><a href="https://aqarmap.com.eg/ar/listing/6926955-for-rent-cairo-el-maadi-compounds-kmbwnd-wn-qtmyh-m-mr-lmrshdy/" target="_blank">aqarmap.com.eg — EG-6926955</a></div>
+          <div class="li-row"><span class="li-key">تاريخ النشر:</span><span>٢٥ أبريل ٢٠٢٦</span></div>
+          <div class="li-row"><span class="li-key">نوع المعلن:</span><span>مسوق عقاري — كود: دينا</span></div>
+          <div class="li-row"><span class="li-key">يطل على:</span><span>الشارع الرئيسي — دائري المعادي</span></div>
+          <div class="li-row"><span class="li-key">مزايا إضافية:</span><span>هاتف أرضي — عداد مياه — عداد كهرباء</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    <span contenteditable="false">إعداد: أبريل ٢٠٢٦</span>
+    <span contenteditable="false">للاستخدام الداخلي — مقارنة المكاتب المتاحة</span>
+  </div>
+</div>
+
+<button class="print-btn no-print" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+
+<script>
+let editMode = false;
+function toggleEditMode() {
+  editMode = !editMode;
+  document.body.classList.toggle('edit-mode', editMode);
+  const btn = document.getElementById('toggleEdit');
+  btn.textContent = editMode ? '✓ وضع التعديل مفعّل' : 'تفعيل التعديل';
+  btn.classList.toggle('active', editMode);
+  document.querySelectorAll('[contenteditable]').forEach(el => el.contentEditable = editMode);
+}
+function addTag(containerId, type) {
+  const text = prompt(type === 'feature' ? 'أدخل الميزة الجديدة:' : 'أدخل العيب الجديد:');
+  if (!text || !text.trim()) return;
+  const wrap = document.getElementById(containerId);
+  const span = document.createElement('span');
+  span.className = type === 'feature' ? 'feature-tag' : 'con-tag';
+  span.innerHTML = `<span contenteditable="${editMode}">${text.trim()}</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button>`;
+  wrap.appendChild(span);
+}
+function removeTag(btn) { btn.closest('.feature-tag,.con-tag').remove(); }
+document.querySelectorAll('.img-zone').forEach(zone => {
+  const id = zone.id.replace('zone-', '');
+  zone.addEventListener('dragenter', e => { e.preventDefault(); document.getElementById('ph-'+id).classList.add('drag-over'); });
+  zone.addEventListener('dragover', e => e.preventDefault());
+  zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) document.getElementById('ph-'+id).classList.remove('drag-over'); });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    document.getElementById('ph-'+id).classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) setImage(id, file);
+  });
+});
+function loadFile(e, id) { if (e.target.files[0]) setImage(id, e.target.files[0]); }
+function setImage(id, file) {
+  const r = new FileReader();
+  r.onload = e => { document.getElementById('img-'+id).src = e.target.result; document.getElementById('zone-'+id).classList.add('has-image'); };
+  r.readAsDataURL(file);
+}
+function removeImg(id) {
+  document.getElementById('img-'+id).src='';
+  document.getElementById('zone-'+id).classList.remove('has-image');
+  document.querySelector('#zone-'+id+' input').value='';
+}
+</script>
+</body>
+</html>
