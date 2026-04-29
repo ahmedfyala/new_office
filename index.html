@@ -961,6 +961,7 @@ body.edit-mode .add-tag-btn { display:inline-flex; }
 </div>
 
 <button class="print-btn no-print" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+<button class="print-btn no-print" onclick="clearAllData()" style="left: 190px; background: #dc2626;">🗑️ مسح التعديلات</button>
 
 <script>
 let editMode = false;
@@ -972,6 +973,147 @@ function toggleEditMode() {
   btn.classList.toggle('active', editMode);
   document.querySelectorAll('[contenteditable]').forEach(el => el.contentEditable = editMode);
 }
+
+// ----------------- DB AND STORAGE LOGIC -----------------
+const DB_NAME = 'OfficeCompareDB';
+const DB_VERSION = 1;
+let db;
+
+const initDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains('store')) db.createObjectStore('store');
+    };
+    request.onsuccess = (e) => { db = e.target.result; resolve(); };
+    request.onerror = (e) => reject(e);
+  });
+};
+
+const saveData = (key, data) => {
+  if (!db) return;
+  const tx = db.transaction('store', 'readwrite');
+  tx.objectStore('store').put(data, key);
+};
+
+const loadData = (key) => {
+  return new Promise((resolve) => {
+    if (!db) return resolve(null);
+    const tx = db.transaction('store', 'readonly');
+    const req = tx.objectStore('store').get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+};
+
+function saveTextsAndTags() {
+  const texts = [];
+  document.querySelectorAll('.card-title, .card-subtitle, .detail-value, .doc-footer span').forEach((el) => {
+    texts.push(el.innerHTML);
+  });
+  
+  const tags = {};
+  document.querySelectorAll('.tags-wrap').forEach(wrap => {
+    tags[wrap.id] = wrap.innerHTML;
+  });
+
+  saveData('textsAndTags', { texts, tags });
+}
+
+function restoreTextsAndTags(data) {
+  if (!data) return;
+  if (data.texts) {
+    document.querySelectorAll('.card-title, .card-subtitle, .detail-value, .doc-footer span').forEach((el, i) => {
+      if (data.texts[i] !== undefined) el.innerHTML = data.texts[i];
+    });
+  }
+  if (data.tags) {
+    document.querySelectorAll('.tags-wrap').forEach(wrap => {
+      if (data.tags[wrap.id] !== undefined) wrap.innerHTML = data.tags[wrap.id];
+    });
+  }
+  document.querySelectorAll('[contenteditable]').forEach(el => el.contentEditable = editMode);
+}
+
+function saveZoneImages(id) {
+  const zone = document.getElementById('zone-'+id);
+  const images = [];
+  zone.querySelectorAll('.gallery-item img').forEach(img => images.push(img.src));
+  saveData('images_'+id, images);
+}
+
+function restoreZoneImages(id, images) {
+  if (!images || images.length === 0) return;
+  const zone = document.getElementById('zone-'+id);
+  zone.classList.add('has-image');
+  
+  let gallery = zone.querySelector('.gallery-container');
+  if (!gallery) {
+    gallery = document.createElement('div');
+    gallery.className = 'gallery-container';
+    zone.appendChild(gallery);
+    
+    const hint = document.createElement('div');
+    hint.className = 'add-more-hint';
+    hint.innerText = '+ اضغط أو اسحب لإضافة المزيد من الصور';
+    zone.appendChild(hint);
+  }
+
+  images.forEach(src => {
+    const item = document.createElement('div');
+    item.className = 'gallery-item';
+    
+    const img = document.createElement('img');
+    img.src = src;
+    
+    const rmBtn = document.createElement('button');
+    rmBtn.className = 'gallery-remove-btn no-print';
+    rmBtn.innerText = '✕';
+    rmBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      item.remove();
+      if (gallery.children.length === 0) {
+        zone.classList.remove('has-image');
+        document.querySelector('#zone-'+id+' input').value='';
+      }
+      saveZoneImages(id);
+    };
+    
+    item.appendChild(img);
+    item.appendChild(rmBtn);
+    gallery.appendChild(item);
+  });
+}
+
+async function clearAllData() {
+  if(confirm('هل أنت متأكد من مسح جميع التعديلات والصور المحفوظة والبدء من جديد؟')) {
+    if(!db) return;
+    const tx = db.transaction('store', 'readwrite');
+    tx.objectStore('store').clear();
+    tx.oncomplete = () => location.reload();
+  }
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.hasAttribute('contenteditable') || e.target.closest('[contenteditable]')) {
+    saveTextsAndTags();
+  }
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await initDB();
+  const textData = await loadData('textsAndTags');
+  if (textData) restoreTextsAndTags(textData);
+  
+  document.querySelectorAll('.img-zone').forEach(async zone => {
+    const id = zone.id.replace('zone-', '');
+    const images = await loadData('images_'+id);
+    if (images && images.length > 0) restoreZoneImages(id, images);
+  });
+});
+// --------------------------------------------------------
 function addTag(containerId, type) {
   const text = prompt(type === 'feature' ? 'أدخل الميزة الجديدة:' : 'أدخل العيب الجديد:');
   if (!text || !text.trim()) return;
@@ -980,8 +1122,12 @@ function addTag(containerId, type) {
   span.className = type === 'feature' ? 'feature-tag' : 'con-tag';
   span.innerHTML = `<span contenteditable="${editMode}">${text.trim()}</span><button class="remove-tag-btn" onclick="removeTag(this)">×</button>`;
   wrap.appendChild(span);
+  saveTextsAndTags();
 }
-function removeTag(btn) { btn.closest('.feature-tag,.con-tag').remove(); }
+function removeTag(btn) { 
+  btn.closest('.feature-tag,.con-tag').remove(); 
+  saveTextsAndTags();
+}
 document.querySelectorAll('.img-zone input[type="file"]').forEach(input => input.multiple = true);
 document.querySelectorAll('.img-zone').forEach(zone => {
   const id = zone.id.replace('zone-', '');
@@ -1012,8 +1158,10 @@ function setImages(id, files) {
     zone.appendChild(hint);
   }
 
-  Array.from(files).forEach(file => {
-    if (!file.type.startsWith('image/')) return;
+  const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+  let loaded = 0;
+  
+  validFiles.forEach(file => {
     const r = new FileReader();
     r.onload = e => {
       const item = document.createElement('div');
@@ -1033,11 +1181,15 @@ function setImages(id, files) {
           zone.classList.remove('has-image');
           document.querySelector('#zone-'+id+' input').value='';
         }
+        saveZoneImages(id);
       };
       
       item.appendChild(img);
       item.appendChild(rmBtn);
       gallery.appendChild(item);
+      
+      loaded++;
+      if (loaded === validFiles.length) saveZoneImages(id);
     };
     r.readAsDataURL(file);
   });
